@@ -3,13 +3,45 @@ import telebot
 import google.generativeai as genai
 from PIL import Image
 from keep_alive import keep_alive
+import time
 
-# টোকen লোড
+# টেলিগ্রাম টোকেন লোড
 TELEGRAM_TOKEN = os.environ.get('TELEGRAM_TOKEN')
-GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY')
-
 bot = telebot.TeleBot(TELEGRAM_TOKEN)
-genai.configure(api_key=GEMINI_API_KEY)
+
+# ৩টি জেমিনি এপিআই কি-এর লিস্ট তৈরি (ফোল্ডার সিস্টেম)
+API_KEYS = [
+    os.environ.get('GEMINI_API_KEY_1'),
+    os.environ.get('GEMINI_API_KEY_2'),
+    os.environ.get('GEMINI_API_KEY_3')
+]
+
+# ফিল্টার করে নেওয়া যাতে কোনো কি খালি থাকলে কোড ক্র্যাশ না করে
+API_KEYS = [key for key in API_KEYS if key]
+
+def generate_content_with_retry(prompt, image):
+    """৩টি কি-এর মধ্যে অটোমেটিক সুইচ করার মূল ফাংশন"""
+    last_error = None
+    
+    for index, key in enumerate(API_KEYS):
+        try:
+            print(f"Trying Gemini API Key {index + 1}...")
+            genai.configure(api_key=key)
+            model = genai.GenerativeModel('gemini-2.5-flash') 
+            
+            # এপিআই কল
+            response = model.generate_content([prompt, image])
+            print(f"Success using API Key {index + 1}!")
+            return response
+        except Exception as e:
+            print(f"API Key {index + 1} failed. Error: {str(e)}")
+            last_error = e
+            # একটি কি ফেল করলে পরের কি-তে যাওয়ার আগে ১ সেকেন্ড ওয়েট করবে
+            time.sleep(1)
+            continue
+            
+    # যদি ৩টি কি-র একটিও কাজ না করে, তবেই কেবল ফাইনাল এরর থ্রো করবে
+    raise last_error
 
 # স্টার্ট কমান্ড
 @bot.message_handler(commands=['start', 'help'])
@@ -30,11 +62,8 @@ def handle_chart(message):
         with open(image_path, 'wb') as f:
             f.write(downloaded_file)
             
-        # অল্টারনেটিভ লেটেস্ট মডেল ট্রাই করুন
-        model = genai.GenerativeModel('gemini-2.5-flash') 
         image = Image.open(image_path)
         
-        # প্রম্পটে কড়া ইন্সট্রাকশন দেওয়া হয়েছে ফরম্যাটের জন্য
         prompt = """
         You are an elite Smart Money Concepts (SMC) and Price Action Trading AI.
         Analyze this candlestick chart screenshot very carefully.
@@ -49,11 +78,12 @@ def handle_chart(message):
         Technical Logic: [Write the technical logic analysis here in 2-3 sentences]
         """
         
-        # এপিআই কল
-        response = model.generate_content([prompt, image])
+        # অটো-রোটেশন ফাংশন কল করা হলো
+        response = generate_content_with_retry(prompt, image)
+
         ai_text = response.text
         
-        # এআই-এর আউটপুট প্রসেস করে কাস্টম ইমোজি এবং স্পয়লার অ্যাড করা
+        # এআই-এর আউটপুট প্রসেস করা
         lines = ai_text.split('\n')
         asset = "N/A"
         signal = "N/A"
@@ -78,7 +108,6 @@ def handle_chart(message):
                 if line.strip():
                     logic += " " + line.strip()
 
-        # সিগন্যাল অনুযায়ী আপনার পছন্দের গোল বাতি ইমোজি সেট করা
         if "UP" in signal:
             signal_output = "UP 🟢"
         elif "DOWN" in signal:
@@ -86,7 +115,6 @@ def handle_chart(message):
         else:
             signal_output = signal
 
-        # HTML ফরম্যাটে সুন্দর করে সাজানো (সিমোর বা স্পয়লার ইফেক্টসহ)
         final_message = (
             f"<b>Asset Pair:</b> {asset}\n"
             f"<b>Signal:</b> {signal_output}\n"
@@ -96,14 +124,13 @@ def handle_chart(message):
             f"<tg-spoiler>{logic if logic else 'Analyzing structure and liquidity zones.'}</tg-spoiler>"
         )
         
-        # ফাইনাল মেসেজটি HTML মোডে পাঠানো
         bot.edit_message_text(final_message, chat_id=message.chat.id, message_id=status_msg.message_id, parse_mode="HTML")
         
         if os.path.exists(image_path):
             os.remove(image_path)
             
     except Exception as e:
-        bot.send_message(message.chat.id, f"❌ একটি ইন্টারনাল এরর হয়েছে:\n{str(e)}")
+        bot.send_message(message.chat.id, f"❌ দুঃখিত, এআই সার্ভার বর্তমানে ওভারলোডেড। অনুগ্রহ করে ১৫ সেকেন্ড পর আবার চেষ্টা করুন।\n\n*(Error Details: {str(e)})*")
 
 if __name__ == "__main__":
     keep_alive()
