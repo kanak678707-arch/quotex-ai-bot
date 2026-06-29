@@ -8,7 +8,7 @@ import time
 TELEGRAM_TOKEN = os.environ.get('TELEGRAM_TOKEN')
 bot = telebot.TeleBot(TELEGRAM_TOKEN)
 
-# ৩টি আলাদা ফ্রি এপিআই কি-এর লিস্ট
+# ৩টি ফ্রি কি রোটেশন
 API_KEYS = [
     os.environ.get('GEMINI_API_KEY_1'),
     os.environ.get('GEMINI_API_KEY_2'),
@@ -21,7 +21,7 @@ def generate_content_with_retry(prompt, image):
     for index, key in enumerate(API_KEYS):
         try:
             genai.configure(api_key=key)
-            model = genai.GenerativeModel('gemini-1.5-flash')
+            model = genai.GenerativeModel('gemini-2.5-flash')
             response = model.generate_content([prompt, image])
             return response
         except Exception as e:
@@ -30,86 +30,102 @@ def generate_content_with_retry(prompt, image):
             continue
     raise last_error
 
-# প্রম্পট ছোট করা হয়েছে যাতে জেমিনি দ্রুত রেসপন্স করে
-FAST_PROMPT = """
-You are a 1-minute binary options sniper. Analyze this chart immediately.
-CRITICAL: You must decide the NEXT candle direction right now. No neutral advice.
+# 🎯 আপনার সেই চমৎকার ও নিখুঁত বড় প্রম্পটটিই এখানে রাখা হলো
+SCALPER_PROMPT = """
+You are an Elite AI High-Frequency Quantitative Scalper, specialized in 1-minute binary options contract analysis for Quotex. 
+Your core directive is to decode the provided chart screenshot and deliver a high-probability sniper forecast for the immediate NEXT 1-MINUTE CANDLE.
 
-Provide the response exactly in this strict short format:
-SIGNAL: [UP or DOWN]
-CONFIDENCE: [Strict %]
-PAIR: [Pair name]
-LOGIC: [1 short sentence reason]
+Absolute Operational Command: You are FORBIDDEN from being neutral or outputting "NO TRADE". You must mathematically weigh the buyers' vs. sellers' short-term dominance and commit to either UP or DOWN.
+
+Instantly run the chart through these 4 Proprietary Institutional Frameworks:
+1. SMART MONEY REJECTION & BODY-TO-WICK RATIO: Scan the last 3 candles. Analyze the rejection tails. A long lower wick at a Key Support Zone proves Institutional Liquidity Sweep (Bullish Rejection) -> Filter DOWN, force UP. A long upper wick at a Resistance Level proves Supply absorption (Bearish Rejection) -> Filter UP, force DOWN.
+2. SNR BREAKOUT VS. FAKEOUT (S&R): Determine if the current price candle is breaking a major horizontal support/resistance level or forming a fakeout. If a candle closes robustly BEYOND a level with surging volume -> follow the Breakout. If it closes as a weak pinbar pushing back inside the zone -> trade the Reverse.
+3. RSI BOUNDARY EXHAUSTION: Locate the RSI line at the bottom. If RSI <= 28 (Extreme Oversold Exhaustion), do NOT hunt for DOWN; your algorithm must heavily bias toward an UP reversal. If RSI >= 72 (Extreme Overbought Exhaustion), do NOT hunt for UP; your algorithm must heavily bias toward a DOWN reversal.
+4. MACD & VOLUME CONFLUENCE TIER: Cross-reference price velocity with the bottom Volume Histogram. High-volume candles validating MACD crossovers signify institutional participation.
+
+You MUST provide the response exactly in this strict English format below without any extra markdown symbols outside:
+
+Asset Pair: [Pair name, e.g., EUR/USD or USD/JPY]
+Detected Pattern: [SMC Liquidity Sweep / SNR Breakout / False Breakout / Momentum Continuation]
+Volume Status: [Climax High / Dying Low / Neutral]
+RSI Status: [Overbought Exhaustion (No UP) / Oversold Exhaustion (No DOWN) / Zone Trading]
+MACD Status: [Bullish Divergence / Bearish Crossover / Trapped Neutral]
+Signal: [UP or DOWN]
+Confidence Level: [Strict % quantified from your 4-tier strategy match]
+Technical Logic: [Explain the precise mathematical/SMC trigger driving this sniper shot in 1-2 ultra-short sentences]
 """
 
 @bot.message_handler(commands=['start', 'help'])
 def send_welcome(message):
-    bot.reply_to(message, "⚡ ১০-সেকেন্ড আল্ট্রা-ফাস্ট স্ক্যাল্পিং মোড একটিভ! চার্টের স্ক্রিনশট পাঠান।")
+    bot.reply_to(message, "⚡ আপনার পারফেক্ট স্নাইপার মোড একটিভ! চার্টের স্ক্রিনশট পাঠান (৪০ সেকেন্ডে)।")
 
 @bot.message_handler(content_types=['photo'])
 def handle_chart(message):
     image_path = "temp_chart.jpg"
     optimized_path = "fast_chart.jpg"
     try:
-        # ১.১ সেকেন্ডে প্রথম রেসপন্স (ইউজারকে রেডি করা)
-        status_msg = bot.reply_to(message, "⚡ স্নাইপার একটিভ... সিগন্যাল রেডি হচ্ছে...")
+        status_msg = bot.reply_to(message, "⚡ স্নাইপার শট রেডি হচ্ছে...")
         
-        # ছবি ডাউনলোড
         file_info = bot.get_file(message.photo[-1].file_id)
         downloaded_file = bot.download_file(file_info.file_path)
         
         with open(image_path, 'wb') as f:
             f.write(downloaded_file)
             
-        # ছবির কোয়ালিটি ও সাইজ চরম লেভেলে ছোট করা (যাতে গুগলের কাছে ১ সেকেন্ডে আপলোড হয়)
+        # ইমেজ সাইজ সুপার লাইট করা (স্পিড বুস্টের জন্য)
         img = Image.open(image_path)
-        img = img.resize((800, 450)) # আরও ছোট রেজোলিউশন (সুপার ফাস্ট)
-        img.save(optimized_path, "JPEG", quality=60) # কোয়ালিটি ৬০% করায় ফাইলের সাইজ একদম হালকা হয়ে যাবে
+        img = img.resize((900, 506)) 
+        img.save(optimized_path, "JPEG", quality=65)
         
         optimized_image = Image.open(optimized_path)
         
-        # জেমিনি থেকে ফাস্ট ডেটা নেওয়া (গড়ে ৪-৫ সেকেন্ড লাগবে)
-        response = generate_content_with_retry(FAST_PROMPT, optimized_image)
+        # জেমিনি এপিআই কল
+        response = generate_content_with_retry(SCALPER_PROMPT, optimized_image)
         ai_text = response.text
         
-        # দ্রুত সিগন্যাল ফিল্টার করা
+        # ডাটা প্রসেসিং
         lines = ai_text.split('\n')
-        signal_direction = "UP"  # Default
-        confidence = "80%"
-        pair = "Crypto/OTC"
-        logic = "Trend Momentum Shift"
+        asset, pattern, volume_status, rsi, macd, signal, confidence, logic = "N/A", "None", "Normal", "Neutral", "Neutral", "N/A", "N/A", ""
         
+        capture_logic = False
         for line in lines:
-            if "SIGNAL:" in line: signal_direction = line.replace("SIGNAL:", "").strip().upper()
-            elif "CONFIDENCE:" in line: confidence = line.replace("CONFIDENCE:", "").strip()
-            elif "PAIR:" in line: pair = line.replace("PAIR:", "").strip()
-            elif "LOGIC:" in line: logic = line.replace("LOGIC:", "").strip()
+            if "Asset Pair:" in line: asset = line.replace("Asset Pair:", "").strip()
+            elif "Detected Pattern:" in line: pattern = line.replace("Detected Pattern:", "").strip()
+            elif "Volume Status:" in line: volume_status = line.replace("Volume Status:", "").strip()
+            elif "RSI Status:" in line: rsi = line.replace("RSI Status:", "").strip()
+            elif "MACD Status:" in line: macd = line.replace("MACD Status:", "").strip()
+            elif "Signal:" in line: signal = line.replace("Signal:", "").strip().upper()
+            elif "Confidence Level:" in line: confidence = line.replace("Confidence Level:", "").strip()
+            elif "Technical Logic:" in line:
+                logic = line.replace("Technical Logic:", "").strip()
+                capture_logic = True
+            elif capture_logic and line.strip():
+                logic += " " + line.strip()
 
-        # ২. সিগন্যাল আইকন ঠিক করা
-        if "UP" in signal_direction:
-            signal_output = "🚨 SNIPER SIGNAL: UP 🟢🟢🟢"
-        else:
-            signal_output = "🚨 SNIPER SIGNAL: DOWN 🔴🔴🔴"
+        signal_output = "UP 🟢" if "UP" in signal else "DOWN 🔴"
 
-        # ৩. ঠিক ৫-৭ সেকেন্ডের মাথায় মেইন সিগন্যাল পাঠিয়ে দেওয়া (যা আপনি সাথে সাথে স্ক্রিনে দেখতে পাবেন)
+        # 🔥 ১ম ধাপ: ৫-৭ সেকেন্ডের মাথায় চোখের পলকে শুধু মেইন সিগন্যালটা স্ক্রিনে চলে আসবে
         fast_message = (
-            f"<b>{signal_output}</b>\n"
-            f"<b>Confidence:</b> {confidence}\n"
-            f"<b>Pair:</b> {pair}\n"
+            f"🎯 <b>SIGNAL: {signal_output}</b>\n"
+            f"🔥 <b>Confidence:</b> {confidence}\n"
+            f"📊 <b>Pair:</b> {asset}\n"
             f"━━━━━━━━━━━━━━━━━━\n"
-            f"⏳ <i>Technical details loading in 3 seconds...</i>"
+            f"⏳ <i>Analyzing indicators & logic...</i>"
         )
         bot.edit_message_text(fast_message, chat_id=message.chat.id, message_id=status_msg.message_id, parse_mode="HTML")
         
-        # ৪. আপনি যখন এন্ট্রি নিচ্ছেন, তখন ব্যাকঅ্যান্ডে মেসেজটি আপডেট হয়ে পুরো লজিক বসে যাবে
-        time.sleep(2) # সামান্য একটু গ্যাপ দিয়ে লজিকটা পুশ করা
+        # 🤝 ২য় ধাপ: আপনি যখন কোটেক্সে এন্ট্রি নিচ্ছেন, ব্যাকএন্ডে ২ সেকেন্ড পর পুরো লজিক মেসেজে যোগ হয়ে যাবে
+        time.sleep(1.5)
         final_message = (
-            f"<b>{signal_output}</b>\n"
-            f"<b>Confidence:</b> {confidence}\n"
-            f"<b>Pair:</b> {pair}\n"
+            f"🎯 <b>SIGNAL: {signal_output}</b>\n"
+            f"🔥 <b>Confidence:</b> {confidence}\n"
+            f"📊 <b>Pair:</b> {asset}\n"
             f"━━━━━━━━━━━━━━━━━━\n"
-            f"<b>🎯 Technical Logic:</b>\n"
-            f"<tg-spoiler>{logic}</tg-spoiler>"
+            f"<b>Pattern:</b> {pattern}\n"
+            f"<b>RSI:</b> {rsi} | <b>MACD:</b> {macd}\n"
+            f"<b>Volume:</b> {volume_status}\n\n"
+            f"<b>💡 Sniper Technical Logic:</b>\n"
+            f"<tg-spoiler>{logic if logic else 'Matched with multiple indicator trend.'}</tg-spoiler>"
         )
         bot.edit_message_text(final_message, chat_id=message.chat.id, message_id=status_msg.message_id, parse_mode="HTML")
         
