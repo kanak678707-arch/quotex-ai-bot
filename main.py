@@ -31,9 +31,10 @@ def handle_chart(message):
         with open(image_path, 'wb') as f:
             f.write(downloaded_file)
             
-        # জেমিনি প্রম্পট সেটআপ
-        model = genai.GenerativeModel('models/gemini-1.5-flash')
+# অল্টারনেটিভ লেটেস্ট মডেল ট্রাই করুন
+        model = genai.GenerativeModel('gemini-2.5-flash') 
         image = Image.open(image_path)
+
         
         prompt = """
         You are an elite Smart Money Concepts (SMC) and Price Action Trading AI.
