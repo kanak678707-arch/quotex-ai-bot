@@ -54,14 +54,14 @@ Technical Logic: [Explain the exact Sniper Shot reason based on Wicks, RSI, or S
 """
 @bot.message_handler(commands=['start', 'help'])
 def send_welcome(message):
-    bot.reply_to(message, "⚡ আল্ট্রা-লাইট স্ক্যাল্পিং মোড চালু হয়েছে! ৩টি ভিন্ন ফ্রি কি এবং ইমেজ অপ্টিমাইজেশন একটিভ।")
+    bot.reply_to(message, "⚡ আপনার স্ক্রিনশটটি এখন আপলোড দিতে পারেন ।")
 
 @bot.message_handler(content_types=['photo'])
 def handle_chart(message):
     image_path = "temp_chart.jpg"
     optimized_path = "optimized_chart.jpg"
     try:
-        status_msg = bot.reply_to(message, "⚡ ক্যান্ডেল ও ইন্ডিকেটর স্ক্যান করা হচ্ছে...")
+        status_msg = bot.reply_to(message, "⚡ ক্আপনার স্ক্রিনশর্টের চার্টটি এখন স্ক্যান করা হচ্ছে...")
         
         file_info = bot.get_file(message.photo[-1].file_id)
         downloaded_file = bot.download_file(file_info.file_path)
@@ -114,7 +114,7 @@ def handle_chart(message):
         bot.edit_message_text(final_message, chat_id=message.chat.id, message_id=status_msg.message_id, parse_mode="HTML")
         
     except Exception as e:
-        bot.send_message(message.chat.id, f"❌ সবকটি ফ্রি সার্ভার এই মুহূর্তে ব্যস্ত। অনুগ্রহ করে ১০ সেকেন্ড পর আবার চেষ্টা করুন।")
+        bot.send_message(message.chat.id, f"❌ সবকটি ফ্রি সার্ভার এই মুহূর্তে ব্যস্ত। অনুগ্রহ করে 30 সেকেন্ড পর আবার চেষ্টা করুন।")
     finally:
         if os.path.exists(image_path): os.remove(image_path)
         if os.path.exists(optimized_path): os.remove(optimized_path)
