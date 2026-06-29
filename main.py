@@ -32,7 +32,7 @@ def handle_chart(message):
             f.write(downloaded_file)
             
         # জেমিনি প্রম্পট সেটআপ
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        model = genai.GenerativeModel('models/gemini-1.5-flash')
         image = Image.open(image_path)
         
         prompt = """
