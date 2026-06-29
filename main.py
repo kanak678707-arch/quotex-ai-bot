@@ -35,13 +35,13 @@ def generate_content_with_retry(prompt, image):
 # স্টার্ট কমান্ড
 @bot.message_handler(commands=['start', 'help'])
 def send_welcome(message):
-    bot.reply_to(message, "👋 আল্ট্রা ভলিউম ও ইন্ডিকেটর মোড একটিভ! চার্টে RSI, MACD এবং Volume On করে স্ক্রিনশট পাঠান।")
+    bot.reply_to(message, "⚡ ১-মিনিট অ্যাগ্রেসিভ স্ক্যাল্পিং মোড চালু হয়েছে! কোটেক্স চার্টের স্ক্রিনশট পাঠান।")
 
 # ফটো হ্যান্ডলার
 @bot.message_handler(content_types=['photo'])
 def handle_chart(message):
     try:
-        status_msg = bot.reply_to(message, "📊 ক্যান্ডেল, ইন্ডিকেটর এবং লাইভ ভলিউম স্ক্যান করা হচ্ছে... অনুগ্রহ করে অপেক্ষা করুন।")
+        status_msg = bot.reply_to(message, "⚡ স্ক্যাল্পিং মোড: ক্যান্ডেল ও ইন্ডিকেটর স্ক্যান করা হচ্ছে...")
         
         # ছবি ডাউনলোড
         file_info = bot.get_file(message.photo[-1].file_id)
@@ -53,28 +53,27 @@ def handle_chart(message):
             
         image = Image.open(image_path)
         
-        # ভলিউম রিড করার জন্য প্রম্পটে নতুন নিয়ম যোগ করা হলো
+        # অ্যাগ্রেসিভ স্ক্যাল্পিং প্রম্পট (No Trade অপশন তুলে দেওয়া হলো)
         prompt = """
-        You are an advanced Institutional Trading Expert specializing in Volume Spread Analysis (VSA), Candlestick Patterns, and Technical Indicators (RSI, MACD) for 1-minute live Forex/Binary markets.
-        Analyze this screenshot with flawless precision:
+        You are a high-frequency Scalping Trader expert in 1-minute binary options. 
+        Analyze this chart screenshot instantly. You MUST give a clear prediction for the next 1-minute candle.
         
-        1. Volume Analysis (VSA): Look at the volume bars at the bottom of the chart. Compare the latest candle's volume bar with the previous 5 volume bars. Detect if it is High Volume (validating the move) or Low Volume (indicating an anomaly or fake breakout/exhaustion).
-        2. Candlestick Pattern: Identify high-probability setups (Hammer, Shooting Star, Engulfing, etc.) and confirm it with the corresponding volume bar. High volume on a reversal candle means institutional confirmation.
-        3. Indicator Synergy: Check RSI (Overbought/Oversold/Divergence) and MACD crossover.
-        4. Strict Confluence Filter: 
-           - Give UP or DOWN only if Price Action, Volume (VSA), RSI, and MACD all align in the same direction with high volume support.
-           - If volume is declining during a breakout, or indicators conflict, you MUST output "NO TRADE".
+        CRITICAL RULE: Do NOT say "NO TRADE". You are FORBIDDEN from giving neutral advice. You MUST pick either UP or DOWN based on whichever side has even a slight statistical advantage.
+        
+        1. Look at the last 2-3 candles and their immediate momentum (Candlestick psychology).
+        2. Look at the RSI, MACD, and Volume trends at the bottom to determine the immediate direction.
+        3. Make a definitive choice: If buyers are even slightly stronger, give UP. If sellers are even slightly stronger, give DOWN.
         
         You MUST provide the response exactly in this strict English format below without any extra markdown symbols outside:
         
         Asset Pair: [Pair name]
         Detected Pattern: [Pattern name or 'None']
-        Volume Status: [High Volume Confirmation, Low Volume/Fakeout Alert, or Decreasing Volume]
-        RSI Status: [Overbought, Oversold, Neutral, or Divergence]
-        MACD Status: [Bullish Crossover, Bearish Crossover, or No Crossover]
-        Signal: [UP, DOWN, or NO TRADE]
-        Confidence Level: [Strict % based on VSA + Indicator confirmation]
-        Technical Logic: [Explain exactly how the volume bars and candlestick price action confirm or reject the current market momentum in 2-3 precise sentences]
+        Volume Status: [High/Low/Normal]
+        RSI Status: [Overbought/Oversold/Neutral]
+        MACD Status: [Bullish/Bearish/Neutral]
+        Signal: [UP or DOWN]
+        Confidence Level: [Strict % based on your short-term momentum calculation]
+        Technical Logic: [Explain the immediate 1-minute scalping reason in 1-2 short sentences]
         """
         
         # এপিআই কল
@@ -85,7 +84,7 @@ def handle_chart(message):
         lines = ai_text.split('\n')
         asset = "N/A"
         pattern = "None"
-        volume_status = "Neutral"
+        volume_status = "Normal"
         rsi = "Neutral"
         macd = "Neutral"
         signal = "N/A"
@@ -115,13 +114,11 @@ def handle_chart(message):
                 if line.strip():
                     logic += " " + line.strip()
 
-        # গোল বাতি কাস্টমাইজেশন
-        if "UP" in signal and "NO" not in signal:
+        # গোল বাতি কাস্টমাইজেশন (অ্যাগ্রেসিভ ফিল্টার)
+        if "UP" in signal:
             signal_output = "UP 🟢"
-        elif "DOWN" in signal:
-            signal_output = "DOWN 🔴"
         else:
-            signal_output = "⚠️ NO TRADE (Volume/Indicator Conflict) ⚠️"
+            signal_output = "DOWN 🔴"
 
         # ফাইনাল আউটপুট সাজানো
         final_message = (
@@ -133,7 +130,7 @@ def handle_chart(message):
             f"<b>Signal:</b> {signal_output}\n"
             f"<b>Confidence Level:</b> {confidence}\n\n"
             f"<b>Technical Logic (Tap to View):</b>\n"
-            f"<tg-spoiler>{logic if logic else 'Analyzing volume bars integration.'}</tg-spoiler>"
+            f"<tg-spoiler>{logic if logic else 'Analyzing quick scalping momentum.'}</tg-spoiler>"
         )
         
         bot.edit_message_text(final_message, chat_id=message.chat.id, message_id=status_msg.message_id, parse_mode="HTML")
