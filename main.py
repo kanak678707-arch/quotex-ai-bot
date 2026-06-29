@@ -9,20 +9,36 @@ import time
 TELEGRAM_TOKEN = os.environ.get('TELEGRAM_TOKEN')
 bot = telebot.TeleBot(TELEGRAM_TOKEN)
 
-# জাস্ট ১টি ফ্রি জেমিনি এপিআই কি লোড হবে (কোনো টাকা লাগবে না)
-GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY')
-genai.configure(api_key=GEMINI_API_KEY)
+# ৩টি জেমিনি ফ্রি এপিআই কি-এর লিস্ট (কোনো টাকা লাগবে না)
+API_KEYS = [
+    os.environ.get('GEMINI_API_KEY_1'),
+    os.environ.get('GEMINI_API_KEY_2'),
+    os.environ.get('GEMINI_API_KEY_3')
+]
+# খালি কি গুলো ফিল্টার করা
+API_KEYS = [key for key in API_KEYS if key]
 
-# এগ্রেসিভ স্ক্যাল্পিং প্রম্পট (সবসময় UP/DOWN দিতে বাধ্য করবে)
+def generate_content_with_retry(prompt, image):
+    """১ম কি জ্যাম থাকলে অটোমেটিক ২য় বা ৩য় কি-তে সুইচ করার মেকানিজম"""
+    last_error = None
+    for index, key in enumerate(API_KEYS):
+        try:
+            genai.configure(api_key=key)
+            model = genai.GenerativeModel('gemini-2.5-flash')
+            response = model.generate_content([prompt, image])
+            return response
+        except Exception as e:
+            print(f"Free Key {index + 1} is busy or limited. Trying next key...")
+            last_error = e
+            continue
+    raise last_error
+
+# অ্যাগ্রেসিভ স্ক্যাল্পিং প্রম্পট (সবসময় UP/DOWN দিতে বাধ্য করবে)
 SCALPER_PROMPT = """
 You are a high-frequency Scalping Trader expert in 1-minute binary options. 
 Analyze this chart screenshot instantly. You MUST give a clear prediction for the next 1-minute candle.
 
 CRITICAL RULE: Do NOT say "NO TRADE". You are FORBIDDEN from giving neutral advice. You MUST pick either UP or DOWN based on whichever side has even a slight statistical advantage.
-
-1. Look at the last 2-3 candles and their immediate momentum (Candlestick psychology).
-2. Look at the RSI, MACD, and Volume trends at the bottom to determine the immediate direction.
-3. Make a definitive choice: If buyers are even slightly stronger, give UP. If sellers are even slightly stronger, give DOWN.
 
 You MUST provide the response exactly in this strict English format below without any extra markdown symbols outside:
 
@@ -32,23 +48,20 @@ Volume Status: [High/Low/Normal]
 RSI Status: [Overbought/Oversold/Neutral]
 MACD Status: [Bullish/Bearish/Neutral]
 Signal: [UP or DOWN]
-Confidence Level: [Strict % based on your short-term momentum calculation]
+Confidence Level: [Strict %]
 Technical Logic: [Explain the immediate 1-minute scalping reason in 1-2 short sentences]
 """
 
-# স্টার্ট কমান্ড
 @bot.message_handler(commands=['start', 'help'])
 def send_welcome(message):
-    bot.reply_to(message, "⚡ ১-মিনিট ফ্রি স্ক্যাল্পিং মোড একটিভ! কোটেক্স চার্টের স্ক্রিনশট পাঠান।")
+    bot.reply_to(message, "⚡ ১-মিনিট ফ্রি স্ক্যাল্পিং মোড (মাল্টি-ব্যাকআপ) একটিভ! কোটেক্স চার্টের স্ক্রিনশট পাঠান।")
 
-# ফটো হ্যান্ডলার
 @bot.message_handler(content_types=['photo'])
 def handle_chart(message):
     image_path = "temp_chart.jpg"
     try:
         status_msg = bot.reply_to(message, "⚡ ক্যান্ডেল ও ইন্ডিকেটর স্ক্যান করা হচ্ছে...")
         
-        # ছবি ডাউনলোড
         file_info = bot.get_file(message.photo[-1].file_id)
         downloaded_file = bot.download_file(file_info.file_path)
         
@@ -57,9 +70,8 @@ def handle_chart(message):
             
         image = Image.open(image_path)
         
-        # ফ্রি জেমিনি মডেল কল (১.৫ ফ্ল্যাশ ২0২6 সালেও সম্পূর্ণ ফ্রি ও ফাস্ট)
-        model = genai.GenerativeModel('gemini-2.5-flash')
-        response = model.generate_content([SCALPER_PROMPT, image])
+        # অটো-রোটেশন ফাংশন কল
+        response = generate_content_with_retry(SCALPER_PROMPT, image)
         ai_text = response.text
         
         # আউটপুট প্রসেস
@@ -83,7 +95,6 @@ def handle_chart(message):
 
         signal_output = "UP 🟢" if "UP" in signal else "DOWN 🔴"
 
-        # ফাইনাল মেসেজ ফরম্যাট
         final_message = (
             f"<b>Asset Pair:</b> {asset}\n"
             f"<b>Candle Pattern:</b> {pattern}\n"
@@ -99,7 +110,7 @@ def handle_chart(message):
         bot.edit_message_text(final_message, chat_id=message.chat.id, message_id=status_msg.message_id, parse_mode="HTML")
         
     except Exception as e:
-        bot.send_message(message.chat.id, f"❌ এপিআই ওভারলোড হয়েছে। প্লিজ ৫ সেকেন্ড পর আবার ছবিটি পাঠান।")
+        bot.send_message(message.chat.id, f"❌ সবকটি ফ্রি সার্ভার এই মুহূর্তে ব্যস্ত। অনুগ্রহ করে ১০ সেকেন্ড পর আবার চেষ্টা করুন।")
     finally:
         if os.path.exists(image_path):
             os.remove(image_path)
